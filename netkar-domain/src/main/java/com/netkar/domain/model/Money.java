@@ -4,6 +4,9 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Currency;
 import java.util.Objects;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Arrays;
 
 public final class Money {
 
@@ -108,5 +111,48 @@ public final class Money {
     @Override
     public String toString() {
         return roundedToMinorUnit().amount + " " + currency.getCurrencyCode();
+    }
+
+    public List<Money> allocate(List<BigDecimal> weights) {
+        if (weights == null || weights.isEmpty()) {
+            throw new IllegalArgumentException("weights must not be empty");
+        }
+        int n = weights.size();
+        BigDecimal weightSum = weights.stream()
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        boolean equalSplit = weightSum.signum() == 0;
+
+        long totalCents = amount.setScale(2, RoundingMode.HALF_UP)
+            .movePointRight(2).longValueExact();
+
+        long[] cents = new long[n];
+        BigDecimal[] remainders = new BigDecimal[n];
+        long allocated = 0;
+        for (int i = 0; i < n; i++) {
+            BigDecimal share = equalSplit
+                ? BigDecimal.valueOf(totalCents)
+                    .divide(BigDecimal.valueOf(n), 10, RoundingMode.HALF_UP)
+                : BigDecimal.valueOf(totalCents).multiply(weights.get(i))
+                    .divide(weightSum, 10, RoundingMode.HALF_UP);
+            long floor = share.setScale(0, RoundingMode.FLOOR).longValueExact();
+            cents[i] = floor;
+            remainders[i] = share.subtract(BigDecimal.valueOf(floor));
+            allocated += floor;
+        }
+
+        long leftover = totalCents - allocated;
+        Integer[] order = new Integer[n];
+        for (int i = 0; i < n; i++) order[i] = i;
+        Arrays.sort(order, (a, b) -> {
+            int cmp = remainders[b].compareTo(remainders[a]);
+            return cmp != 0 ? cmp : Integer.compare(a, b);
+        });
+        for (int k = 0; k < leftover; k++) cents[order[k]] += 1;
+
+        List<Money> result = new ArrayList<>(n);
+        for (int i = 0; i < n; i++) {
+            result.add(new Money(BigDecimal.valueOf(cents[i], 2), currency));
+        }
+        return result;
     }
 }
