@@ -1,20 +1,21 @@
 package com.netkar.infrastructure;
 
 import com.netkar.application.CalculateProductProfitabilityUseCase;
-import com.netkar.domain.model.allocation.RevenueWeightedAllocation;
 import com.netkar.domain.result.ProductProfitability;
-import com.netkar.domain.service.ProfitCalculator;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
 @Component
-public class DemoRunner implements CommandLineRunner {
+class DemoRunner implements CommandLineRunner {
+
+    private final CalculateProductProfitabilityUseCase useCase;
+
+    DemoRunner(CalculateProductProfitabilityUseCase useCase) {
+        this.useCase = useCase;
+    }
 
     @Override
     public void run(String... args) {
-        CalculateProductProfitabilityUseCase useCase =
-            new CalculateProductProfitabilityUseCase(new ProfitCalculator(new RevenueWeightedAllocation()));
-
         var result = useCase.calculate(SampleData.packages(), SampleData.costs());
 
         System.out.println("=== Ürün bazlı kârlılık ===");
