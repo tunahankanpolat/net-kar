@@ -35,7 +35,7 @@ public final class CalculateProductProfitabilityUseCase {
         byProduct.forEach((ref, breakdowns) ->
             products.add(ProductProfitability.from(ref, breakdowns)));
 
-        return new Result(List.copyOf(products), RedList.from(products));
+        return new Result(products, RedList.from(products));
     }
 
     public record Result(List<ProductProfitability> products, RedList redList) {

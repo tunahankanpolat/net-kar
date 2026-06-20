@@ -113,6 +113,13 @@ public final class Money {
         return roundedToMinorUnit().amount + " " + currency.getCurrencyCode();
     }
 
+    /**
+     * Splits this amount across the given weights using the largest-remainder method.
+     * Returned parts are at minor-unit scale, in input order, and sum exactly to
+     * {@code this.roundedToMinorUnit()}. A zero weight-sum falls back to an equal split.
+     * Precondition: this amount must be non-negative (the SALE path only allocates
+     * non-negative package fees); signed/return allocation is out of scope here.
+     */
     public List<Money> allocate(List<BigDecimal> weights) {
         if (weights == null || weights.isEmpty()) {
             throw new IllegalArgumentException("weights must not be empty");

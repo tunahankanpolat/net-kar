@@ -17,6 +17,7 @@ public final class VatRate {
     }
 
     public static VatRate of(String value) {
+        Objects.requireNonNull(value, "value");
         return new VatRate(new BigDecimal(value));
     }
 

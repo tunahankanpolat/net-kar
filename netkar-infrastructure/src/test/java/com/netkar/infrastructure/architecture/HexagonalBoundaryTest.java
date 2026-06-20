@@ -35,10 +35,10 @@ class HexagonalBoundaryTest {
     }
 
     @Test
-    void application_does_not_depend_on_infrastructure_or_spring() {
+    void application_does_not_depend_on_infrastructure_spring_or_jakarta() {
         noClasses().that().resideInAPackage("com.netkar.application..")
             .should().dependOnClassesThat()
-            .resideInAnyPackage("com.netkar.infrastructure..", "org.springframework..")
+            .resideInAnyPackage("com.netkar.infrastructure..", "org.springframework..", "jakarta..")
             .check(classes);
     }
 }
