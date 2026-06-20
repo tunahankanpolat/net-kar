@@ -31,6 +31,24 @@ Both settlements & otherFinancials are paginated (`page`, `size`) and filter by 
 
 ---
 
+## 2b. Real response schema — ✅ CONFIRMED from the OpenAPI (`/reference/*.md`)
+
+**Important correction to the PRD/core-domain assumption.** `getSettlements` and `getOtherFinancials` return the SAME **flat** `FinancialTransaction` rows — **NOT** a nested `order → lines[]` structure — and there is **NO `vatRate`, `vatAmount`, or `lineGrossAmount` field**.
+
+Shared `content[]` fields (settlements & otherfinancials), `?` = nullable:
+`id, transactionDate, barcode?, transactionType, receiptId?, description?, debt, credit, paymentPeriod?, commissionRate?, commissionAmount?, commissionInvoiceSerialNumber?, sellerRevenue?, orderNumber?, paymentOrderId?, paymentDate?, sellerId, storeId?, storeName?, storeAddress?, country, orderDate?, affiliate, shipmentPackageId?`
+**Absent: `vatRate`, `vatAmount`, `lineGrossAmount`.**
+
+What this means:
+- The finance endpoints are a **ledger of transaction rows** (a Sale row, a Commission adjustment row, …) keyed by `barcode` + `orderNumber` + `shipmentPackageId`. Money/direction is in `debt`/`credit`; `commissionRate` + `commissionAmount` + `sellerRevenue` ride on the row.
+- **`commissionRate` IS present and per-row (variable by category)** — confirms commission is not a fixed %. With `commissionRate` + the amounts in one real row, the commission base and KDV-inclusivity can be **reverse-engineered from a single sandbox record**.
+- **Sale gross (KDV dahil) and product VAT rate do NOT come from here** — they come from order/shipment data (`getShipmentPackages`) + Products API `vatRate`. So the normalizer must **join 4–5 sources** by `shipmentPackageId`/`orderNumber`/`barcode`: Orders (sale gross, qty, vatRate) + Settlements (commission, realized amounts, returns) + OtherFinancials (service fee, stopaj) + Cargo (shipping) + Products (vatRate).
+- **No VAT field anywhere** in the finance responses → VAT is **always derived from a rate**; only the inclusive/exclusive convention changes the formula (sandbox-only).
+
+This does NOT invalidate the domain model — `SettlementPackage`/`SettlementLine` remain a fine *target*. But the normalizer is a real **multi-source join + ledger-folding** job, not a field rename, and the core spec's "Settlements `lines[]` barcode-based `lineGrossAmount`/`vatRate`" claim (PRD §12) was an assumption, now corrected.
+
+---
+
 ## 3. Where each cost line lives (✅ RESOLVED — location/mapping)
 
 | Domain concept | Source |
@@ -47,16 +65,16 @@ Both settlements & otherFinancials are paginated (`page`, `size`) and filter by 
 
 **Fields seen:** `shipmentPackageType`, `parcelUniqueId`, `orderNumber`, `amount`, `desi`.
 **Linkage:** get the `invoiceSerialNumber` from a settlement/otherFinancials record whose `transactionType` is the cargo-invoice type (the record's `Id` becomes `invoiceSerialNumber`); cargo items then carry `orderNumber` / `parcelUniqueId`. Also, **`shipmentPackageId` is now on settlements & otherFinancials** (added 2025-03-21), which eases the cargo↔settlement join the core-domain spec described.
-**⚠️ SANDBOX:** cargo `amount` VAT-inclusive vs exclusive, and whether a VAT rate/amount field exists, are NOT documented. `desi` is present → enables the P1 desi-based allocation later.
+**✅ CONFIRMED (OpenAPI):** cargo items have exactly 5 fields — `shipmentPackageType, parcelUniqueId, orderNumber, amount, desi` — and **NO VAT field**. **⚠️ SANDBOX:** whether `amount` is KDV-inclusive vs exclusive (VAT derived from a 20% rate either way). `desi` present → enables the P1 desi-based allocation later.
 
 ---
 
 ## 5. Still need a sandbox (⚠️ OPEN)
 
-1. **`commissionAmount` VAT-inclusive or exclusive?** Not documented. (Core engine currently assumes exclusive: `commissionVat = commission × 0.20`.)
-2. **Cargo `amount` VAT-inclusive/exclusive + rate field?** Not documented.
-3. **Exact response JSON schemas** (field names/types, debt/credit field names, `lines[]` shape) — confirm `lineGrossAmount`, `vatRate`, `commissionAmount`, `barcode` field names against a real payload.
-4. **Service/rate limits for finance endpoints** — the limits page only exposed product-service limits. Note: "order package retrieval service limits change as of 2026-06-08" (details TBD); design the client with backoff + pagination regardless.
+1. **KDV-inclusivity of `commissionAmount` and cargo `amount`** — the only formula-affecting unknown (no VAT field exists, so we derive). Resolvable from **one real row** via `commissionRate` (does `commissionAmount` ≈ base × rate, and does it carry the 20%?). Core engine currently assumes commission exclusive (`× 0.20`) but cargo/service inclusive (`splitVat`) — reconcile once known.
+2. **`debt`/`credit` semantics per `transactionType`** — which field+sign means what, and which amount on a Sale row is the gross sale vs `sellerRevenue` (net). Needs a few real rows.
+3. **Finance schemas: ✅ now CONFIRMED** (flat `FinancialTransaction`; cargo = 5 fields — see §2b/§4). Remaining: confirm the **order/`getShipmentPackages`** line fields (`lineGrossAmount`/`vatRate`/qty/`barcode`) that supply the sale side of the join.
+4. **Service/rate limits for finance endpoints** — limits page only exposed product-service limits. Note "order package retrieval limits change 2026-06-08" (TBD); design the client with backoff + pagination regardless.
 
 ---
 
@@ -73,6 +91,7 @@ Both settlements & otherFinancials are paginated (`page`, `size`) and filter by 
 ## 7. Connector design implications (for brainstorming)
 
 - **Normalizer is the anti-corruption layer**: map Trendyol's debt/credit ledger + the ~22/9 transaction types → the existing `SettlementPackage`/`SettlementLine` + canonical signed per-role effects. The domain stays untouched.
-- **Join model**: prefer `shipmentPackageId` (now on settlements/otherfinancials) to stitch settlement lines + service fee + cargo; fall back to `orderNumber`/`parcelUniqueId` for cargo items.
+- **Multi-source join (not a rename)**: the finance endpoints are a flat ledger with no sale gross / vatRate, so the normalizer stitches **Orders/`getShipmentPackages` (sale gross, qty, vatRate) + Settlements (commission, realized amounts, returns) + OtherFinancials (service fee, stopaj) + Cargo (shipping) + Products (vatRate)** — keyed on `shipmentPackageId` (now on settlements/otherfinancials), falling back to `orderNumber`/`barcode`/`parcelUniqueId`.
+- **Fee VAT-splitting belongs in the normalizer** (it owns the marketplace's KDV convention), and should "read-explicit-else-derive" — but note there is NO VAT field, so it always derives from a rate; isolate the inclusive/exclusive choice to one place.
 - **Validate against 2 sources** (PRD §12): after Trendyol, paper-map Hepsiburada Finans to the same normalized model to test the abstraction.
 - **Two concrete sandbox questions to answer first** (cheap, hours): commission VAT-inclusivity and cargo VAT-inclusivity — both feed the KDV engine's accuracy and need mali müşavir sign-off.
