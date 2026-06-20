@@ -49,6 +49,32 @@ This does NOT invalidate the domain model — `SettlementPackage`/`SettlementLin
 
 ---
 
+## 2c. `sellerRevenue` & double-counting — handle per `transactionType`, NOT as one meaning
+
+`sellerRevenue` ("Satıcı hakediş tutarı") is on the **shared** schema → it appears in BOTH settlements and otherfinancials and carries **different context per `transactionType`**. Do NOT sum it as a single "per-product net."
+
+**✅ Confirmed from the spec:**
+- A sale's economics are split across **paired rows that must be evaluated TOGETHER**: `SellerRevenuePositive + CommissionNegative`, `SellerRevenueNegative + CommissionPositive`, plus their `…Cancel` pairs. Revenue and commission for one event arrive as **separate ledger rows**, not one row.
+- `paymentOrderId` ("Ödeme numarası") groups settlement rows into a payout batch; `receiptId` ("Dekont No") groups items within one transaction; `paymentPeriod` = vade (days).
+- `PaymentOrder` (otherfinancials) = the **payout/hakediş stage** ("vadesi gelen işlemlerden hesaplanan tedarikçi ödemesi") — a *different stage* from settlement transaction rows, NOT a per-product figure.
+
+**Answers (✅ confirmed / ⚠️ sandbox):**
+- Which services return it? **Both** (shared schema). ✅
+- Which transactionTypes populate it? The `SellerRevenue*` rows (paired with `Commission*`), likely `Sale`/`Return` too; exact set ⚠️.
+- Settlements grain? Per-row `barcode`/`orderNumber` → **product-level**. ✅
+- OtherFinancials grain? **Payout/invoice level** (PaymentOrder, *Invoice), grouped by `paymentOrderId` — not per-product. ✅ structure / ⚠️ exact.
+- Double-count risk? **Yes** — across stages (settlement vs PaymentOrder) and paired rows. Also: commission may exist BOTH as a Sale row's `commissionAmount` field AND as separate `Commission*` rows — must not be counted twice. ⚠️
+- Use some types, ignore others? **Yes — whitelist.**
+
+**Design (normalizer):**
+1. A **`transactionType` → role map** is the heart of the normalizer: each type → `{ role, signFrom(debt/credit), grain (barcode|package|payout|invoice), includeInProductProfit }`.
+2. Count product revenue/commission at **one grain only** — the settlement transaction rows — by **summing the paired** `SellerRevenue*` + `Commission*` rows per `orderNumber`/`shipmentPackageId`/`receiptId`. Exclude `PaymentOrder`/invoice rows from per-product profit (payout/invoice stage).
+3. Use `sellerRevenue` + `PaymentOrder` (hakediş) as a **reconciliation cross-check**, not the profit driver: our computed net should ≈ Trendyol's `sellerRevenue`/hakediş; surface mismatches as a flag (supports the "doğruluk" pitch). The domain stays revenue-from-components; `sellerRevenue` never feeds the engine directly.
+
+> ⚠️ The narrative that a Sale row has `debt=0, credit=order value, sellerRevenue + commissionAmount ≈ credit` is **indicative — confirm in sandbox**. The verbatim field meanings and the pairing list above are the reliable parts.
+
+---
+
 ## 3. Where each cost line lives (✅ RESOLVED — location/mapping)
 
 | Domain concept | Source |
@@ -75,6 +101,7 @@ This does NOT invalidate the domain model — `SettlementPackage`/`SettlementLin
 2. **`debt`/`credit` semantics per `transactionType`** — which field+sign means what, and which amount on a Sale row is the gross sale vs `sellerRevenue` (net). Needs a few real rows.
 3. **Finance schemas: ✅ now CONFIRMED** (flat `FinancialTransaction`; cargo = 5 fields — see §2b/§4). Remaining: confirm the **order/`getShipmentPackages`** line fields (`lineGrossAmount`/`vatRate`/qty/`barcode`) that supply the sale side of the join.
 4. **Service/rate limits for finance endpoints** — limits page only exposed product-service limits. Note "order package retrieval limits change 2026-06-08" (TBD); design the client with backoff + pagination regardless.
+5. **Exact `transactionType` → {populates `sellerRevenue`? where commission actually lands} map** — needed to build the role-map whitelist and avoid double counting (see §2c). Confirm against a few real rows of each type.
 
 ---
 
