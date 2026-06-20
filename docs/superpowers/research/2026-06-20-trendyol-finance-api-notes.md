@@ -57,6 +57,7 @@ This does NOT invalidate the domain model — `SettlementPackage`/`SettlementLin
 - A sale's economics are split across **paired rows that must be evaluated TOGETHER**: `SellerRevenuePositive + CommissionNegative`, `SellerRevenueNegative + CommissionPositive`, plus their `…Cancel` pairs. Revenue and commission for one event arrive as **separate ledger rows**, not one row.
 - `paymentOrderId` ("Ödeme numarası") groups settlement rows into a payout batch; `receiptId` ("Dekont No") groups items within one transaction; `paymentPeriod` = vade (days).
 - `PaymentOrder` (otherfinancials) = the **payout/hakediş stage** ("vadesi gelen işlemlerden hesaplanan tedarikçi ödemesi") — a *different stage* from settlement transaction rows, NOT a per-product figure.
+- **The settlement-row `sellerRevenue` ≈ sale − COMMISSION only**, at **product/barcode grain**. **Cargo, service fee (hizmet bedeli), and stopaj are NOT inside it** — they're billed separately (cargo invoice / otherfinancials). The "all-deductions-off" net is the **`PaymentOrder`** payout (aggregate). [doc-level; the exact arithmetic + KDV-inclusivity ⚠️ sandbox — online example numbers were inconsistent, don't trust them.] Both `sellerRevenue` AND `commissionAmount` sit on the same row, so `saleGross ≈ sellerRevenue + commissionAmount` (verify).
 
 **Answers (✅ confirmed / ⚠️ sandbox):**
 - Which services return it? **Both** (shared schema). ✅
@@ -69,7 +70,13 @@ This does NOT invalidate the domain model — `SettlementPackage`/`SettlementLin
 **Design (normalizer):**
 1. A **`transactionType` → role map** is the heart of the normalizer: each type → `{ role, signFrom(debt/credit), grain (barcode|package|payout|invoice), includeInProductProfit }`.
 2. Count product revenue/commission at **one grain only** — the settlement transaction rows — by **summing the paired** `SellerRevenue*` + `Commission*` rows per `orderNumber`/`shipmentPackageId`/`receiptId`. Exclude `PaymentOrder`/invoice rows from per-product profit (payout/invoice stage).
-3. Use `sellerRevenue` + `PaymentOrder` (hakediş) as a **reconciliation cross-check**, not the profit driver: our computed net should ≈ Trendyol's `sellerRevenue`/hakediş; surface mismatches as a flag (supports the "doğruluk" pitch). The domain stays revenue-from-components; `sellerRevenue` never feeds the engine directly.
+3. **Architecture fork for the sale side (decide in brainstorming; confirm with ONE sandbox row):**
+   - **(A) Component reconstruction** — `saleNet − commissionNet − cargo − service − stopaj − COGS` (what the current core engine does).
+   - **(B) `sellerRevenue`-anchored** — use the row's `sellerRevenue` as the authoritative **product-grain, post-commission** sale net, then subtract only `cargo − service − stopaj − COGS`. This skips re-deriving commission **and dodges the commission-VAT-inclusivity unknown** for the cash result — a real win.
+   - **Recommended hybrid:** anchor the cash figure on `sellerRevenue`, but keep `commissionAmount` + reconstructed `saleGross (= sellerRevenue + commission)` to still produce the **per-component KDV breakdown** and a built-in **consistency check** (`sellerRevenue + commission ≈ sale`).
+   - **Hard rule:** if you anchor on `sellerRevenue` (commission already netted), do **NOT** subtract commission again — that is the headline double-count. Encode this in the role-map.
+   - Note: `sellerRevenue` is likely **KDV-dahil** (a cash hakediş figure) → VAT still has to be handled; it doesn't remove VAT work, it removes *commission* work.
+   - `PaymentOrder`/hakediş stays a **payout-level reconciliation** cross-check, never summed into per-product profit.
 
 > ⚠️ The narrative that a Sale row has `debt=0, credit=order value, sellerRevenue + commissionAmount ≈ credit` is **indicative — confirm in sandbox**. The verbatim field meanings and the pairing list above are the reliable parts.
 
