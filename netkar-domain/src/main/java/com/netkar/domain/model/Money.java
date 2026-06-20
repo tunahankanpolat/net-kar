@@ -52,6 +52,16 @@ public final class Money {
         return new Money(amount.multiply(factor), currency);
     }
 
+    public VatSplit splitVat(VatRate rate) {
+        Money gross = roundedToMinorUnit();
+        java.math.BigDecimal vatAmount = gross.amount
+            .multiply(rate.value())
+            .divide(rate.onePlus(), 2, java.math.RoundingMode.HALF_UP);
+        Money vat = new Money(vatAmount, currency);
+        Money net = gross.subtract(vat);
+        return new VatSplit(net, vat);
+    }
+
     public Money negate() {
         return new Money(amount.negate(), currency);
     }
