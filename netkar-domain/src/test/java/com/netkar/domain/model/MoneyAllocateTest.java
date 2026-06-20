@@ -1,6 +1,7 @@
 package com.netkar.domain.model;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -31,5 +32,17 @@ class MoneyAllocateTest {
             .allocate(List.of(BigDecimal.ZERO, BigDecimal.ZERO));
         assertThat(parts).containsExactly(Money.tryOf("5.00"), Money.tryOf("5.00"));
         assertThat(parts.stream().reduce(Money.zeroTry(), Money::add)).isEqualTo(Money.tryOf("10.00"));
+    }
+
+    @Test
+    void rejects_negative_total() {
+        assertThatThrownBy(() -> Money.tryOf("-1.00").allocate(List.of(ONE)))
+            .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void rejects_negative_weight() {
+        assertThatThrownBy(() -> Money.tryOf("10.00").allocate(List.of(ONE, new BigDecimal("-1"))))
+            .isInstanceOf(IllegalArgumentException.class);
     }
 }

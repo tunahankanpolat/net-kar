@@ -12,16 +12,19 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 public final class CalculateProductProfitabilityUseCase {
 
     private final ProfitCalculator calculator;
 
     public CalculateProductProfitabilityUseCase(ProfitCalculator calculator) {
-        this.calculator = calculator;
+        this.calculator = Objects.requireNonNull(calculator, "calculator");
     }
 
     public Result calculate(List<SettlementPackage> packages, CostBook costs) {
+        Objects.requireNonNull(packages, "packages");
+        Objects.requireNonNull(costs, "costs");
         Map<ProductRef, List<ProfitBreakdown>> byProduct = new LinkedHashMap<>();
         for (SettlementPackage pkg : packages) {
             PackageProfit profit = calculator.calculate(pkg, costs);

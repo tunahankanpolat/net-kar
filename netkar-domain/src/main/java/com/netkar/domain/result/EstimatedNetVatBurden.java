@@ -1,6 +1,7 @@
 package com.netkar.domain.result;
 
 import com.netkar.domain.model.Money;
+import java.util.Objects;
 
 public record EstimatedNetVatBurden(
     Money saleVat,
@@ -9,6 +10,15 @@ public record EstimatedNetVatBurden(
     Money commissionVat,
     Money serviceFeeVat,
     Money net) {
+
+    public EstimatedNetVatBurden {
+        Objects.requireNonNull(saleVat, "saleVat");
+        Objects.requireNonNull(cogsVat, "cogsVat");
+        Objects.requireNonNull(shippingVat, "shippingVat");
+        Objects.requireNonNull(commissionVat, "commissionVat");
+        Objects.requireNonNull(serviceFeeVat, "serviceFeeVat");
+        Objects.requireNonNull(net, "net");
+    }
 
     public static EstimatedNetVatBurden of(
         Money saleVat, Money cogsVat, Money shippingVat, Money commissionVat, Money serviceFeeVat) {

@@ -15,6 +15,7 @@ import com.netkar.domain.result.PackageProfit;
 import com.netkar.domain.result.ProfitBreakdown;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 public final class ProfitCalculator {
@@ -22,10 +23,12 @@ public final class ProfitCalculator {
     private final AllocationStrategy allocationStrategy;
 
     public ProfitCalculator(AllocationStrategy allocationStrategy) {
-        this.allocationStrategy = allocationStrategy;
+        this.allocationStrategy = Objects.requireNonNull(allocationStrategy, "allocationStrategy");
     }
 
     public PackageProfit calculate(SettlementPackage pkg, CostBook costs) {
+        Objects.requireNonNull(pkg, "pkg");
+        Objects.requireNonNull(costs, "costs");
         if (pkg.effect() != TransactionEffect.SALE) {
             throw new UnsupportedOperationException(
                 "Only SALE is supported; " + pkg.effect()

@@ -1,10 +1,11 @@
 package com.netkar.domain.result;
 
 import java.util.List;
+import java.util.Objects;
 
 public record PackageProfit(String packageId, List<ProfitBreakdown> lines) {
-    public PackageProfit(String packageId, List<ProfitBreakdown> lines) {
-        this.packageId = packageId;
-        this.lines = List.copyOf(lines);
+    public PackageProfit {
+        Objects.requireNonNull(packageId, "packageId");
+        lines = List.copyOf(lines);
     }
 }

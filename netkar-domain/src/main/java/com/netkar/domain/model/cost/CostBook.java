@@ -2,6 +2,7 @@ package com.netkar.domain.model.cost;
 
 import com.netkar.domain.model.ProductRef;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 public final class CostBook {
@@ -17,6 +18,7 @@ public final class CostBook {
     }
 
     public Optional<ProductCost> find(ProductRef productRef) {
+        Objects.requireNonNull(productRef, "productRef");
         return Optional.ofNullable(costs.get(productRef));
     }
 }

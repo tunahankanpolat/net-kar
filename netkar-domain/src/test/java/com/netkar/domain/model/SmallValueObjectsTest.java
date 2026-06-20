@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.math.BigDecimal;
+import java.util.Currency;
 import org.junit.jupiter.api.Test;
 
 class SmallValueObjectsTest {
@@ -30,6 +31,13 @@ class SmallValueObjectsTest {
     void percentage_rejects_zero_denominator() {
         assertThatThrownBy(() -> Percentage.ratio(Money.tryOf("1.00"), Money.zeroTry()))
             .isInstanceOf(ArithmeticException.class);
+    }
+
+    @Test
+    void percentage_rejects_currency_mismatch() {
+        Money usd = Money.of(new BigDecimal("100.00"), Currency.getInstance("USD"));
+        assertThatThrownBy(() -> Percentage.ratio(Money.tryOf("23.00"), usd))
+            .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test

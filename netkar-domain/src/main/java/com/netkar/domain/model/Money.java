@@ -124,6 +124,15 @@ public final class Money {
         if (weights == null || weights.isEmpty()) {
             throw new IllegalArgumentException("weights must not be empty");
         }
+        if (isNegative()) {
+            throw new IllegalArgumentException("allocation of a negative amount is not supported");
+        }
+        for (BigDecimal weight : weights) {
+            Objects.requireNonNull(weight, "weight");
+            if (weight.signum() < 0) {
+                throw new IllegalArgumentException("weight must not be negative: " + weight);
+            }
+        }
         int n = weights.size();
         BigDecimal weightSum = weights.stream()
             .reduce(BigDecimal.ZERO, BigDecimal::add);

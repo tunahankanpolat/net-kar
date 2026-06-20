@@ -3,6 +3,7 @@ package com.netkar.domain.result;
 import com.netkar.domain.model.Money;
 import com.netkar.domain.model.ProductRef;
 import java.util.List;
+import java.util.Objects;
 
 public record ProductProfitability(
     ProductRef productRef,
@@ -13,6 +14,8 @@ public record ProductProfitability(
     boolean anyMissingCost) {
 
     public static ProductProfitability from(ProductRef productRef, List<ProfitBreakdown> breakdowns) {
+        Objects.requireNonNull(productRef, "productRef");
+        Objects.requireNonNull(breakdowns, "breakdowns");
         Money revenue = Money.zeroTry();
         Money profit = Money.zeroTry();
         Money vat = Money.zeroTry();
