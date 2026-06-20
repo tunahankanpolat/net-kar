@@ -39,5 +39,8 @@ public final class CalculateProductProfitabilityUseCase {
     }
 
     public record Result(List<ProductProfitability> products, RedList redList) {
+        public Result {
+            products = List.copyOf(products);
+        }
     }
 }

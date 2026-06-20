@@ -44,5 +44,6 @@ class CalculateProductProfitabilityUseCaseTest {
         assertThat(result.redList().items()).hasSize(1);
         assertThat(result.redList().items().get(0).productRef()).isEqualTo(ProductRef.of("LOSE"));
         assertThat(result.redList().items().get(0).isLoss()).isTrue();
+        assertThat(result.products().get(0).lineCount()).isEqualTo(2);
     }
 }
