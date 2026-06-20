@@ -6,7 +6,7 @@
 
 **Architecture:** Maven multi-module hexagonal project. `netkar-domain` is pure Java (no Spring, no I/O) holding value objects, the `SettlementPackage` aggregate, the `ProfitCalculator` domain service, and a `RevenueWeightedAllocation` domain policy. `netkar-application` orchestrates a use-case over the domain. `netkar-infrastructure` is a thin Spring Boot shell with a demo runner and the ArchUnit boundary tests. The dependency rule (domain → nothing) is enforced by both Maven module wiring and ArchUnit.
 
-**Tech Stack:** Java 21, Maven, JUnit 5, AssertJ, ArchUnit, Spring Boot 3.3 (infrastructure only).
+**Tech Stack:** Java 21, Maven, JUnit 5, AssertJ, ArchUnit 1.4.2, Spring Boot 4.1.0 (infrastructure only — chosen over 3.5.x because 3.x OSS support ends 2026-06-30; Boot 4 GA since Nov 2025, Java 17+ baseline, trivial usage here).
 
 ## Global Constraints
 
@@ -117,8 +117,8 @@ class BuildSmokeTest {
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>21</maven.compiler.release>
-        <spring-boot.version>3.3.5</spring-boot.version>
-        <archunit.version>1.3.0</archunit.version>
+        <spring-boot.version>4.1.0</spring-boot.version>
+        <archunit.version>1.4.2</archunit.version>
     </properties>
 
     <dependencyManagement>
