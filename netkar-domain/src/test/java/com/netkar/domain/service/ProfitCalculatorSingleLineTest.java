@@ -50,6 +50,7 @@ class ProfitCalculatorSingleLineTest {
         assertThat(b.netProfit()).isEqualTo(Money.tryOf("6.93"));
         assertThat(b.missingCost()).isFalse();
         assertThat(b.margin()).isPresent();
+        assertThat(b.allocated()).isFalse();
     }
 
     @Test
